@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { motion } from 'framer-motion'
-import { GitBranch, Scissors, ScrollText, Shield } from 'lucide-react'
+import { GitBranch, Hand as HandIcon, Scissors, ScrollText } from 'lucide-react'
 import { type CardType, type MinimaxNode } from '../game/types'
 
 interface TreeNodeViewProps {
@@ -8,8 +8,8 @@ interface TreeNodeViewProps {
   isHighlighted: boolean
 }
 
-const iconMap: Record<CardType, typeof Shield> = {
-  Rock: Shield,
+const iconMap: Record<CardType, typeof HandIcon> = {
+  Rock: HandIcon,
   Paper: ScrollText,
   Scissors: Scissors,
 }
