@@ -1,9 +1,6 @@
 import { motion } from 'framer-motion'
-import { Bot, Trophy } from 'lucide-react'
-import { getOutcomeLabel } from './helpers'
-import { PlayerHand } from './PlayerHand'
-import { ScorePanel } from './ScorePanel'
-import { type CardType, type GameState, type RoundRecord } from '../game/types'
+import { Hand as HandIcon, RotateCcw, ScrollText, Swords, Trophy } from 'lucide-react'
+import { type AiDecision, type CardType, type GameState, type Hand, type RoundRecord } from '../game/types'
 
 interface GameBoardProps {
   gameState: GameState
@@ -11,7 +8,56 @@ interface GameBoardProps {
   winnerLabel: string | null
   lastRound: RoundRecord | null
   lastAiCard: CardType | null
+  lastAiDecision: AiDecision
   onPlayCard: (card: CardType) => void
+  onReset: () => void
+}
+
+const iconMap = {
+  Rock: HandIcon,
+  Paper: ScrollText,
+  Scissors: Swords,
+}
+
+function HandStrip({
+  hand,
+  activeMove,
+  disabled,
+  interactive,
+  onPlayCard,
+}: {
+  hand: Hand
+  activeMove: CardType | null
+  disabled: boolean
+  interactive: boolean
+  onPlayCard?: (card: CardType) => void
+}) {
+  return (
+    <div className="hand-strip">
+      <div className="hand-strip-buttons">
+        {(Object.keys(hand) as CardType[]).map((card) => {
+          const Icon = iconMap[card]
+          const isDisabled = disabled || hand[card] === 0 || !interactive
+          const isActive = activeMove === card
+
+          return (
+            <motion.button
+              key={card}
+              type="button"
+              className={`compact-card${isActive ? ' active' : ''}${!interactive ? ' ghost' : ''}`}
+              disabled={isDisabled}
+              onClick={interactive && onPlayCard ? () => onPlayCard(card) : undefined}
+              whileHover={!isDisabled ? { y: -2 } : undefined}
+              whileTap={!isDisabled ? { scale: 0.98 } : undefined}
+            >
+              <Icon size={20} />
+              <span className="compact-card-badge">x{hand[card]}</span>
+            </motion.button>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 export function GameBoard({
@@ -20,73 +66,52 @@ export function GameBoard({
   winnerLabel,
   lastRound,
   lastAiCard,
+  lastAiDecision,
   onPlayCard,
+  onReset,
 }: GameBoardProps) {
   return (
-    <section className="panel game-board">
-      <div className="game-topbar">
-        <div>
-          <p className="panel-kicker">Match State</p>
-          <h2>Human vs AI</h2>
-        </div>
-        <div className="round-pill">Rodada {Math.min(gameState.round, 9)}</div>
-      </div>
+    <section className="panel game-board compact-board">
+      <div className="match-line">
+        <HandStrip
+          hand={gameState.playerHand}
+          activeMove={lastRound?.playerMove ?? null}
+          disabled={isGameOver}
+          interactive
+          onPlayCard={onPlayCard}
+        />
 
-      <div className="score-grid">
-        <ScorePanel label="Humano" score={gameState.playerScore} remaining={gameState.playerHand} tone="neutral" />
-        <ScorePanel label="IA MAX" score={gameState.aiScore} remaining={gameState.aiHand} tone="positive" />
-      </div>
-
-      <div className="divider" />
-
-      <PlayerHand hand={gameState.playerHand} disabled={isGameOver} onPlayCard={onPlayCard} />
-
-      <div className="divider" />
-
-      <div className="last-round-grid">
-        <div className="last-round-card">
-          <small>Ultima rodada</small>
-          {lastRound ? (
-            <>
-              <strong>
-                {lastRound.playerMove} vs {lastRound.aiMove}
-              </strong>
-              <div className="last-result-badge">{getOutcomeLabel(lastRound.result)}</div>
-            </>
-          ) : (
-            <p className="empty-state">Escolha uma carta para iniciar a simulacao.</p>
-          )}
-        </div>
-
-        <motion.div
-          className={`ai-reveal-card${lastAiCard ? '' : ' empty'}`}
-          initial={{ opacity: 0.8, scale: 0.98 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.2 }}
-        >
-          <small>Escolha da IA</small>
-          {lastAiCard ? (
-            <div className="ai-reveal">
-              <strong>{lastAiCard}</strong>
-              <Bot size={22} />
-            </div>
-          ) : (
-            <p className="empty-state">Aguardando sua jogada.</p>
-          )}
-        </motion.div>
-      </div>
-
-      <div className="divider" />
-
-      <div className="game-footer">
-        {winnerLabel ? (
-          <div className="winner-pill">
-            <Trophy size={16} />
-            {winnerLabel}
+        <div className="round-center">
+          <div className="round-center-line">
+            <p className="round-center-label">Rodada {Math.min(gameState.round, 9)}</p>
+            <span className="round-center-dot">•</span>
+            <strong>Humano {gameState.playerScore}</strong>
+            <span className="round-center-dot">•</span>
+            <strong>IA {gameState.aiScore}</strong>
+            <button type="button" className="reset-button icon-only center-reset" onClick={onReset} aria-label="Reiniciar partida">
+              <RotateCcw size={16} />
+            </button>
           </div>
-        ) : (
-          <p className="empty-state">A partida termina quando as duas maos chegam a zero.</p>
-        )}
+
+          <div className="round-center-status">
+            {winnerLabel ? (
+              <div className="winner-pill">
+                <Trophy size={16} />
+                {winnerLabel}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <HandStrip hand={gameState.aiHand} activeMove={lastAiCard} disabled interactive={false} />
+      </div>
+
+      <div className="board-decision-line">
+        <span>{lastAiDecision.card ?? 'Aguardando jogada'}</span>
+        <span>{lastAiDecision.value >= 0 ? `+${lastAiDecision.value}` : lastAiDecision.value}</span>
+        <span>Profundidade limite: {lastAiDecision.exploredDepth}</span>
+        <span>Nos analisados: {lastAiDecision.nodeCount}</span>
+        <span>{lastAiDecision.truncated ? 'Busca parcial com heuristica' : 'Busca terminal completa'}</span>
       </div>
     </section>
   )

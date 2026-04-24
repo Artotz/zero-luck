@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { Minus, Plus, ScanSearch } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { TreeNodeView } from './TreeNodeView'
 import { type MinimaxNode } from '../game/types'
 
@@ -24,7 +23,9 @@ const NODE_HEIGHT = 72
 const HORIZONTAL_GAP = 44
 const VERTICAL_GAP = 74
 const PADDING = 28
-const ZOOM_STEPS = [0.6, 0.8, 1, 1.2, 1.5] as const
+const MIN_SCALE = 0.2
+const MAX_SCALE = 2.4
+const DEFAULT_SCALE = 0.7
 
 function layoutTree(tree: MinimaxNode) {
   const positioned = new Map<string, PositionedNode>()
@@ -76,81 +77,7 @@ const buildEdgePath = (from: PositionedNode, to: PositionedNode) => {
   return `M ${startX} ${startY} C ${startX} ${midY}, ${endX} ${midY}, ${endX} ${endY}`
 }
 
-export function MinimaxTree({ tree, highlightedPath }: MinimaxTreeProps) {
-  const [zoomIndex, setZoomIndex] = useState(2)
-  const highlighted = new Set(highlightedPath)
-  const { nodes, edges, width, height } = layoutTree(tree)
-  const nodeLookup = new Map(nodes.map((entry) => [entry.node.id, entry]))
-  const zoom = ZOOM_STEPS[zoomIndex]
-
-  return (
-    <div className="tree-wrapper">
-      <div className="tree-toolbar">
-        <div className="tree-toolbar-group">
-          <button
-            type="button"
-            className="tree-zoom-button"
-            onClick={() => setZoomIndex((current) => Math.max(0, current - 1))}
-            disabled={zoomIndex === 0}
-            aria-label="Diminuir zoom"
-          >
-            <Minus size={16} />
-          </button>
-          <span className="tree-zoom-level">{Math.round(zoom * 100)}%</span>
-          <button
-            type="button"
-            className="tree-zoom-button"
-            onClick={() => setZoomIndex((current) => Math.min(ZOOM_STEPS.length - 1, current + 1))}
-            disabled={zoomIndex === ZOOM_STEPS.length - 1}
-            aria-label="Aumentar zoom"
-          >
-            <Plus size={16} />
-          </button>
-        </div>
-        <button type="button" className="tree-zoom-button" onClick={() => setZoomIndex(2)} aria-label="Resetar zoom">
-          <ScanSearch size={16} />
-        </button>
-      </div>
-
-      <div className="tree-stage">
-        <div className="tree-canvas" style={{ width: width * zoom, height: height * zoom }}>
-          <div className="tree-zoom-layer" style={{ width, height, transform: `scale(${zoom})` }}>
-        <svg className="tree-svg" width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
-          {edges.map((edge) => {
-            const from = nodeLookup.get(edge.from)
-            const to = nodeLookup.get(edge.to)
-
-            if (!from || !to) {
-              return null
-            }
-
-            const edgeHighlighted = highlighted.has(edge.from) && highlighted.has(edge.to)
-
-            return (
-              <path
-                key={`${edge.from}-${edge.to}`}
-                d={buildEdgePath(from, to)}
-                className={clsxEdge(edgeHighlighted, to.node.pruned)}
-              />
-            )
-          })}
-        </svg>
-
-            {nodes.map(({ node, x, y }) => (
-              <div
-                key={node.id}
-                className="tree-node-slot"
-                style={{ width: NODE_WIDTH, transform: `translate(${x + PADDING}px, ${y + PADDING}px)` }}
-              >
-                <TreeNodeView node={node} isHighlighted={highlighted.has(node.id)} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
 function clsxEdge(isHighlighted: boolean, isPruned: boolean) {
   if (isPruned) {
@@ -158,4 +85,169 @@ function clsxEdge(isHighlighted: boolean, isPruned: boolean) {
   }
 
   return isHighlighted ? 'tree-edge highlighted' : 'tree-edge'
+}
+
+export function MinimaxTree({ tree, highlightedPath }: MinimaxTreeProps) {
+  const stageRef = useRef<HTMLDivElement | null>(null)
+  const dragStateRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null)
+  const hasInitializedViewRef = useRef(false)
+  const scaleRef = useRef(DEFAULT_SCALE)
+  const highlighted = useMemo(() => new Set(highlightedPath), [highlightedPath])
+  const { nodes, edges, width, height } = useMemo(() => layoutTree(tree), [tree])
+  const nodeLookup = useMemo(() => new Map(nodes.map((entry) => [entry.node.id, entry])), [nodes])
+  const [scale, setScale] = useState(DEFAULT_SCALE)
+  const [offset, setOffset] = useState({ x: 0, y: 0 })
+  const [isDragging, setIsDragging] = useState(false)
+
+  useEffect(() => {
+    scaleRef.current = scale
+  }, [scale])
+
+  useEffect(() => {
+    const stage = stageRef.current
+
+    if (!stage) {
+      return
+    }
+
+    if (!hasInitializedViewRef.current) {
+      const centeredX = (stage.clientWidth - width * DEFAULT_SCALE) / 2
+      const centeredY = (stage.clientHeight - height * DEFAULT_SCALE) / 2
+
+      setScale(DEFAULT_SCALE)
+      setOffset({
+        x: centeredX,
+        y: centeredY,
+      })
+      hasInitializedViewRef.current = true
+      return
+    }
+
+    setOffset((currentOffset) => ({
+      x: (stage.clientWidth - width * scaleRef.current) / 2,
+      y: currentOffset.y,
+    }))
+  }, [tree, width, height])
+
+  const handleWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    event.preventDefault()
+
+    const stage = stageRef.current
+
+    if (!stage) {
+      return
+    }
+
+    const rect = stage.getBoundingClientRect()
+    const pointerX = event.clientX - rect.left
+    const pointerY = event.clientY - rect.top
+    const zoomFactor = event.deltaY < 0 ? 1.12 : 0.88
+
+    setScale((currentScale) => {
+      const nextScale = clamp(currentScale * zoomFactor, MIN_SCALE, MAX_SCALE)
+
+      if (nextScale === currentScale) {
+        return currentScale
+      }
+
+      setOffset((currentOffset) => ({
+        x: pointerX - ((pointerX - currentOffset.x) / currentScale) * nextScale,
+        y: pointerY - ((pointerY - currentOffset.y) / currentScale) * nextScale,
+      }))
+
+      return nextScale
+    })
+  }
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) {
+      return
+    }
+
+    dragStateRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      offsetX: offset.x,
+      offsetY: offset.y,
+    }
+
+    setIsDragging(true)
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const dragState = dragStateRef.current
+
+    if (!dragState) {
+      return
+    }
+
+    const deltaX = event.clientX - dragState.x
+    const deltaY = event.clientY - dragState.y
+
+    setOffset({
+      x: dragState.offsetX + deltaX,
+      y: dragState.offsetY + deltaY,
+    })
+  }
+
+  const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    dragStateRef.current = null
+    setIsDragging(false)
+    event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+
+  return (
+    <div
+      ref={stageRef}
+      className={`tree-wrapper interactive${isDragging ? ' dragging' : ''}`}
+      onWheel={handleWheel}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+    >
+      <div className="tree-stage">
+        <div
+          className="tree-canvas"
+          style={{
+            width,
+            height,
+            transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
+          }}
+        >
+          <svg className="tree-svg" width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
+            {edges.map((edge) => {
+              const from = nodeLookup.get(edge.from)
+              const to = nodeLookup.get(edge.to)
+
+              if (!from || !to) {
+                return null
+              }
+
+              const edgeHighlighted = highlighted.has(edge.from) && highlighted.has(edge.to)
+
+              return (
+                <path
+                  key={`${edge.from}-${edge.to}`}
+                  d={buildEdgePath(from, to)}
+                  className={clsxEdge(edgeHighlighted, to.node.pruned)}
+                />
+              )
+            })}
+          </svg>
+
+          {nodes.map(({ node, x, y }) => (
+            <div
+              key={node.id}
+              className="tree-node-slot"
+              style={{ width: NODE_WIDTH, transform: `translate(${x + PADDING}px, ${y + PADDING}px)` }}
+            >
+              <TreeNodeView node={node} isHighlighted={highlighted.has(node.id)} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
 }
