@@ -300,13 +300,62 @@
   position: relative;
   z-index: 1;
   padding: 20px 24px 0;
-  overflow: auto;
   min-height: 32rem;
+}
+
+.tree-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.tree-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tree-zoom-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.tree-zoom-button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.tree-zoom-level {
+  min-width: 3.4rem;
+  text-align: center;
+  color: var(--text-soft);
+  font-family: var(--font-mono);
+  font-size: 0.84rem;
+}
+
+.tree-stage {
+  overflow: auto;
+  padding-bottom: 8px;
 }
 
 .tree-canvas {
   position: relative;
   min-width: 100%;
+}
+
+.tree-zoom-layer {
+  position: relative;
+  transform-origin: top left;
 }
 
 .tree-svg {
@@ -337,27 +386,41 @@
   position: absolute;
   top: 0;
   left: 0;
+  z-index: 1;
+}
+
+.tree-node-shell {
+  position: relative;
+  width: 100%;
 }
 
 .tree-node {
-  width: 100%;
-  border-radius: 20px;
-  padding: 14px;
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid var(--border);
   background: rgba(8, 15, 27, 0.92);
   box-shadow: var(--shadow-soft);
+  cursor: default;
 }
 
 .tree-node.positive {
   border-color: rgba(76, 255, 145, 0.4);
+  background: radial-gradient(circle at 30% 30%, rgba(76, 255, 145, 0.18), rgba(8, 15, 27, 0.95));
 }
 
 .tree-node.negative {
   border-color: rgba(255, 104, 104, 0.35);
+  background: radial-gradient(circle at 30% 30%, rgba(255, 104, 104, 0.18), rgba(8, 15, 27, 0.95));
 }
 
 .tree-node.neutral {
   border-color: rgba(54, 208, 255, 0.25);
+  background: radial-gradient(circle at 30% 30%, rgba(54, 208, 255, 0.16), rgba(8, 15, 27, 0.95));
 }
 
 .tree-node.pruned {
@@ -369,7 +432,77 @@
   box-shadow: 0 0 0 1px rgba(76, 255, 145, 0.55), 0 0 22px rgba(76, 255, 145, 0.18);
 }
 
-.tree-node-header,
+.tree-node-symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tree-node-mini-label {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  min-width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 6, 12, 0.92);
+  border: 1px solid var(--border-strong);
+  color: var(--text-soft);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.tree-node-pruned-flag {
+  position: absolute;
+  top: -6px;
+  right: -2px;
+  color: #d2d8e8;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.tree-tooltip {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 50%;
+  z-index: 4;
+  width: 196px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--border-strong);
+  background: rgba(3, 10, 19, 0.96);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(-6px);
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+
+.tree-tooltip::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  background: rgba(3, 10, 19, 0.96);
+  border-left: 1px solid var(--border-strong);
+  border-top: 1px solid var(--border-strong);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.tree-node-shell:hover .tree-tooltip,
+.tree-node-shell:focus-within .tree-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.tree-tooltip-header,
 .node-badges,
 .node-scoreline,
 .node-bounds {
@@ -379,8 +512,8 @@
   gap: 10px;
 }
 
-.tree-node-header {
-  margin-bottom: 10px;
+.tree-tooltip-header {
+  margin-bottom: 8px;
 }
 
 .node-actor {
@@ -388,10 +521,6 @@
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--text-dim);
-}
-
-.node-move {
-  font-weight: 700;
 }
 
 .node-badge {
@@ -449,10 +578,5 @@
 
   .tree-wrapper {
     padding-inline: 14px;
-  }
-
-  .tree-root,
-  .tree-children {
-    justify-content: flex-start;
   }
 }
