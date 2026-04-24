@@ -49,4 +49,7 @@ export interface AiDecision {
   value: number
   tree: MinimaxNode
   path: string[]
+  exploredDepth: number
+  nodeCount: number
+  truncated: boolean
 }

@@ -65,7 +65,7 @@ export function TreeNodeView({ node, highlightedPath, hasParent = true }: TreeNo
           </div>
 
           <p className="node-state">
-            R{node.state.round} · P {node.state.playerScore} / AI {node.state.aiScore}
+            R{node.state.round} - P {node.state.playerScore} / AI {node.state.aiScore}
           </p>
           <p className="node-state">
             Rem {node.state.playerRemaining}:{node.state.aiRemaining}

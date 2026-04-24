@@ -13,7 +13,7 @@ export function ScorePanel({ label, score, remaining, tone }: ScorePanelProps) {
       <small>{label}</small>
       <strong>{score}</strong>
       <p className="node-state">
-        Rock {remaining.Rock} · Paper {remaining.Paper} · Scissors {remaining.Scissors}
+        Rock {remaining.Rock} - Paper {remaining.Paper} - Scissors {remaining.Scissors}
       </p>
     </article>
   )

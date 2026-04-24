@@ -81,13 +81,13 @@ function App() {
           <h1>Zero Luck</h1>
           <p className="hero-copy">
             Pedra, papel e tesoura com recursos finitos. O humano joga como MIN, a IA joga como MAX e
-            cada decisão revela a árvore Minimax com poda alfa-beta.
+            cada decisao revela a arvore Minimax com poda alfa-beta.
           </p>
         </div>
         <div className="hero-actions">
           <div className="status-chip">
             <Sparkles size={16} />
-            Offline, local e determinístico
+            Offline, local e deterministico
           </div>
           <button type="button" className="reset-button" onClick={handleReset}>
             <RotateCcw size={16} />
@@ -118,6 +118,11 @@ function App() {
               <strong>{lastAiDecision.value >= 0 ? `+${lastAiDecision.value}` : lastAiDecision.value}</strong>
             </div>
           </header>
+          <div className="tree-meta">
+            <span>Profundidade limite: {lastAiDecision.exploredDepth}</span>
+            <span>Nos analisados: {lastAiDecision.nodeCount}</span>
+            <span>{lastAiDecision.truncated ? 'Busca parcial com heuristica' : 'Busca terminal completa'}</span>
+          </div>
 
           <AnimatePresence mode="wait">
             <motion.div
