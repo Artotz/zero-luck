@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Hand as HandIcon, RotateCcw, ScrollText, Swords, Trophy } from 'lucide-react'
+import { Hand as HandIcon, RotateCcw, Scissors, ScrollText, Trophy } from 'lucide-react'
 import { type AiDecision, type CardType, type GameState, type Hand, type RoundRecord } from '../game/types'
 
 interface GameBoardProps {
@@ -16,7 +16,7 @@ interface GameBoardProps {
 const iconMap = {
   Rock: HandIcon,
   Paper: ScrollText,
-  Scissors: Swords,
+  Scissors: Scissors,
 }
 
 function HandStrip({

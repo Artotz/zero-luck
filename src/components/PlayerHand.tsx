@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Hand as HandIcon, ScrollText, Swords } from 'lucide-react'
+import { Hand as HandIcon, Scissors, ScrollText } from 'lucide-react'
 import { CARD_TYPES, type CardType, type Hand } from '../game/types'
 
 interface PlayerHandProps {
@@ -11,7 +11,7 @@ interface PlayerHandProps {
 const iconMap = {
   Rock: HandIcon,
   Paper: ScrollText,
-  Scissors: Swords,
+  Scissors: Scissors,
 }
 
 const descriptionMap: Record<CardType, string> = {
