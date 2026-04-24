@@ -295,6 +295,9 @@
   height: 100%;
   overflow: hidden;
   cursor: grab;
+  touch-action: none;
+  user-select: none;
+  overscroll-behavior: contain;
 }
 
 .tree-wrapper.dragging {
@@ -544,8 +547,12 @@
   }
 
   .tree-panel,
-  .game-board,
-  .tree-wrapper {
+  .game-board {
     height: auto;
+  }
+
+  .tree-wrapper {
+    height: min(62vh, 34rem);
+    min-height: 22rem;
   }
 }

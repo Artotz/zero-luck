@@ -18,6 +18,22 @@ interface Edge {
   to: string
 }
 
+interface DragState {
+  x: number
+  y: number
+  offsetX: number
+  offsetY: number
+}
+
+interface PinchState {
+  centerX: number
+  centerY: number
+  distance: number
+  offsetX: number
+  offsetY: number
+  scale: number
+}
+
 const NODE_WIDTH = 72
 const NODE_HEIGHT = 72
 const HORIZONTAL_GAP = 44
@@ -89,9 +105,12 @@ function clsxEdge(isHighlighted: boolean, isPruned: boolean) {
 
 export function MinimaxTree({ tree, highlightedPath }: MinimaxTreeProps) {
   const stageRef = useRef<HTMLDivElement | null>(null)
-  const dragStateRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null)
+  const dragStateRef = useRef<DragState | null>(null)
+  const activePointersRef = useRef(new Map<number, { x: number; y: number }>())
+  const pinchStateRef = useRef<PinchState | null>(null)
   const hasInitializedViewRef = useRef(false)
   const scaleRef = useRef(DEFAULT_SCALE)
+  const offsetRef = useRef({ x: 0, y: 0 })
   const highlighted = useMemo(() => new Set(highlightedPath), [highlightedPath])
   const { nodes, edges, width, height } = useMemo(() => layoutTree(tree), [tree])
   const nodeLookup = useMemo(() => new Map(nodes.map((entry) => [entry.node.id, entry])), [nodes])
@@ -102,6 +121,10 @@ export function MinimaxTree({ tree, highlightedPath }: MinimaxTreeProps) {
   useEffect(() => {
     scaleRef.current = scale
   }, [scale])
+
+  useEffect(() => {
+    offsetRef.current = offset
+  }, [offset])
 
   useEffect(() => {
     const stage = stageRef.current
@@ -159,31 +182,108 @@ export function MinimaxTree({ tree, highlightedPath }: MinimaxTreeProps) {
     })
   }
 
-  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) {
+  const getStagePoint = (clientX: number, clientY: number) => {
+    const stage = stageRef.current
+
+    if (!stage) {
+      return { x: clientX, y: clientY }
+    }
+
+    const rect = stage.getBoundingClientRect()
+
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top,
+    }
+  }
+
+  const getPointerPair = () => {
+    const pointers = Array.from(activePointersRef.current.values())
+
+    if (pointers.length < 2) {
+      return null
+    }
+
+    const [first, second] = pointers
+    const deltaX = second.x - first.x
+    const deltaY = second.y - first.y
+
+    return {
+      centerX: (first.x + second.x) / 2,
+      centerY: (first.y + second.y) / 2,
+      distance: Math.hypot(deltaX, deltaY),
+    }
+  }
+
+  const startPinch = () => {
+    const pair = getPointerPair()
+
+    if (!pair) {
       return
     }
 
-    dragStateRef.current = {
-      x: event.clientX,
-      y: event.clientY,
-      offsetX: offset.x,
-      offsetY: offset.y,
+    pinchStateRef.current = {
+      ...pair,
+      offsetX: offsetRef.current.x,
+      offsetY: offsetRef.current.y,
+      scale: scaleRef.current,
+    }
+    dragStateRef.current = null
+  }
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) {
+      return
     }
 
+    activePointersRef.current.set(event.pointerId, getStagePoint(event.clientX, event.clientY))
     setIsDragging(true)
     event.currentTarget.setPointerCapture(event.pointerId)
+
+    if (activePointersRef.current.size >= 2) {
+      startPinch()
+      return
+    }
+
+    const pointer = getStagePoint(event.clientX, event.clientY)
+
+    dragStateRef.current = {
+      x: pointer.x,
+      y: pointer.y,
+      offsetX: offsetRef.current.x,
+      offsetY: offsetRef.current.y,
+    }
   }
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (activePointersRef.current.has(event.pointerId)) {
+      activePointersRef.current.set(event.pointerId, getStagePoint(event.clientX, event.clientY))
+    }
+
+    const pinchState = pinchStateRef.current
+    const pair = getPointerPair()
+
+    if (pinchState && pair && pinchState.distance > 0) {
+      const nextScale = clamp(pinchState.scale * (pair.distance / pinchState.distance), MIN_SCALE, MAX_SCALE)
+      const scaleRatio = nextScale / pinchState.scale
+
+      setScale(nextScale)
+      setOffset({
+        x: pair.centerX - (pinchState.centerX - pinchState.offsetX) * scaleRatio,
+        y: pair.centerY - (pinchState.centerY - pinchState.offsetY) * scaleRatio,
+      })
+      return
+    }
+
     const dragState = dragStateRef.current
 
     if (!dragState) {
       return
     }
 
-    const deltaX = event.clientX - dragState.x
-    const deltaY = event.clientY - dragState.y
+    const pointer = getStagePoint(event.clientX, event.clientY)
+    const deltaX = pointer.x - dragState.x
+    const deltaY = pointer.y - dragState.y
 
     setOffset({
       x: dragState.offsetX + deltaX,
@@ -192,9 +292,27 @@ export function MinimaxTree({ tree, highlightedPath }: MinimaxTreeProps) {
   }
 
   const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    activePointersRef.current.delete(event.pointerId)
+    pinchStateRef.current = null
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+
+    if (activePointersRef.current.size === 1) {
+      const [remainingPointer] = activePointersRef.current.values()
+
+      dragStateRef.current = {
+        x: remainingPointer.x,
+        y: remainingPointer.y,
+        offsetX: offsetRef.current.x,
+        offsetY: offsetRef.current.y,
+      }
+      return
+    }
+
     dragStateRef.current = null
     setIsDragging(false)
-    event.currentTarget.releasePointerCapture(event.pointerId)
   }
 
   return (
