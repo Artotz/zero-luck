@@ -9,9 +9,9 @@ interface PlayerHandProps {
 }
 
 const iconMap = {
-  Rock: HandIcon,
+  Rock: Swords,
   Paper: ScrollText,
-  Scissors: Swords,
+  Scissors: HandIcon,
 }
 
 const descriptionMap: Record<CardType, string> = {

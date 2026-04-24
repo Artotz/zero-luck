@@ -14,9 +14,9 @@ interface GameBoardProps {
 }
 
 const iconMap = {
-  Rock: HandIcon,
+  Rock: Swords,
   Paper: ScrollText,
-  Scissors: Swords,
+  Scissors: HandIcon,
 }
 
 function HandStrip({
